@@ -1,23 +1,21 @@
-sub import {
-    my $class = shift;
-    my $caller = caller;
-    my @import;
-    for ( @_ ) {
-        if ( m/^:(.+)$/ ) {
-            $META{$caller}->{$1}++
-        }
-        else {
-            no strict 'refs';
-            *{"$caller\::$_"} = $class->can( $_ )
-                || croak "'$_' is not exported by $class.";
-        }
-    }
-    1;
-}
+#!/usr/bin/perl;
+use strict;
+use warnings;
 
-sub child(&) {
-    my ( $code ) = @_;
-    my $caller = caller;
-    return __PACKAGE__->new($code, %{$META{$caller}})->start;
-}
+use Test::More;
+our $CLASS = 'Child';
+require_ok( $CLASS );
 
+$CLASS->import();
+ok( ! __PACKAGE__->can('child'), "No export by default" );
+
+$CLASS->import('child');
+can_ok( __PACKAGE__, 'child' );
+my $one = child( sub { 1; });
+ok( !$one->ipc, "no ipc by default" );
+
+$CLASS->import(':pipe');
+my $one = child( sub { 1; });
+ok( $one->ipc, "ipc added" );
+
+done_testing;
