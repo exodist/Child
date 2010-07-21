@@ -11,7 +11,7 @@ require_ok( $CLASS );
 can_ok(
     $CLASS,
     map {( $_, "_$_" )}
-        qw/pid started ipc exit_status code parent/
+        qw/pid ipc exit_status code parent/
 );
 
 my $one = bless( {}, $CLASS );
