@@ -15,7 +15,7 @@ my $one = child( sub { 1; });
 ok( !$one->ipc, "no ipc by default" );
 
 $CLASS->import(':pipe');
-my $one = child( sub { 1; });
+$one = child( sub { 1; });
 ok( $one->ipc, "ipc added" );
 
 done_testing;
