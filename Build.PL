@@ -8,6 +8,10 @@ my $build = Module::Build->new(
     license     => 'perl',
     dist_author => 'Chad Granum <exodist7@gmail.com>',
     create_readme => 1,
+    requires => {
+        'IO::Pipe' => 0,
+        'POSIX'    => 0,
+    },
     build_requires => {
         'Test::More'      => 0,
         'Test::Exception' => 0,
