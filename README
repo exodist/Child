@@ -74,11 +74,23 @@ SYNOPSIS
 
         my $message1 = $child->read(1);
 
-METHODS
+CLASS METHODS
+    @children = Child->all_children()
+        Get a list of all the children that have been started. This list is
+        cleared in children when they are started.
+
+    @pids = Child->all_child_pids()
+        Get a list of all the pids of children that have been started.
+
+    Child->wait_all()
+        Call wait() on all children.
+
+CONSTRUCTOR
     $class->new( sub { ... } )
     $class->new( sub { ... }, pipe => 1 )
         Create a new Child object. Does not start the child.
 
+OBJECT METHODS
     $child->start()
         Start the child process.
 

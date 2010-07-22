@@ -3,8 +3,9 @@ use strict;
 use warnings;
 use Carp;
 
-our $VERSION = "0.002";
+our $VERSION = "0.003";
 our %META;
+our @CHILDREN;
 
 for my $reader ( qw/pid ipc exit code parent/ ) {
     my $prop = "_$reader";
@@ -48,6 +49,19 @@ sub child(&;@) {
     return __PACKAGE__->new($code, %{$META{$caller}}, %params )->start;
 }
 
+sub all_children { @CHILDREN }
+
+sub all_child_pids {
+    my $class = shift;
+    map { $_->pid } $class->all_children;
+}
+
+sub wait_all {
+    my $class = shift;
+    $_->wait() for $class->all_children;
+    1;
+}
+
 sub new {
     my ( $class, $code, %params ) = @_;
     my %proto = ( _code => $code );
@@ -61,9 +75,11 @@ sub start {
     my $parent = $$;
     if ( my $pid = fork() ) {
         $self->_pid( $pid );
+        push @CHILDREN => $self;
         $self->_init_ipc if $self->ipc;
     }
     else {
+        @CHILDREN = ();
         $self->_parent( $parent );
         $self->_init_ipc if $self->ipc;
         my $code = $self->code;
@@ -107,7 +123,7 @@ sub _wait {
         my $x = 1;
         do {
             sleep(1) if defined $ret;
-            $ret = waitpid( $self->pid, &POSIX::WNOHANG );
+            $ret = waitpid( $self->pid, $block ? 0 : &POSIX::WNOHANG );
         } while ( $block && !$ret );
         return 0 unless $ret;
         croak( "wait returned $ret: No such process " . $self->pid )
@@ -271,7 +287,26 @@ How child() behaves regarding IPC is lexical to each importing class.
 
     my $message1 = $child->read(1);
 
-=head1 METHODS
+=head1 CLASS METHODS
+
+=over 4
+
+=item @children = Child->all_children()
+
+Get a list of all the children that have been started. This list is cleared in
+children when they are started.
+
+=item @pids = Child->all_child_pids()
+
+Get a list of all the pids of children that have been started.
+
+=item Child->wait_all()
+
+Call wait() on all children.
+
+=back
+
+=head1 CONSTRUCTOR
 
 =over 4
 
@@ -280,6 +315,12 @@ How child() behaves regarding IPC is lexical to each importing class.
 =item $class->new( sub { ... }, pipe => 1 )
 
 Create a new Child object. Does not start the child.
+
+=back
+
+=head1 OBJECT METHODS
+
+=over
 
 =item $child->start()
 
