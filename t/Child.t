@@ -59,4 +59,22 @@ ok( $one->is_complete, "Complete" );
 is( $one->exit_status, 2, "Exit 2" );
 ok( $one->unix_exit > 2, "Real exit" );
 
+$one = $CLASS->new( sub {
+    my $self = shift;
+    $self->autoflush(0);
+    $self->say( "A" );
+    $self->flush;
+    $self->say( "B" );
+    sleep 5;
+    $self->flush;
+}, pipe => 1 );
+
+$one->start;
+is( $one->read(), "A\n", "A" );
+my $start = time;
+is( $one->read(), "B\n", "B" );
+my $end = time;
+
+ok( $end - $start > 2, "No autoflush" );
+
 done_testing;

@@ -190,6 +190,7 @@ sub autoflush {
     my $write = $self->_write_handle;
 
     my $selected = select( $write );
+    no warnings 'uninitialized';
     $| = ($value || undef) if @_;
     my $out = $|;
 
@@ -203,7 +204,7 @@ sub flush {
     my $orig = $self->autoflush();
     $self->autoflush(1);
     my $write = $self->_write_handle;
-    print $write "";
+#    print $write "";
     $self->autoflush($orig);
 }
 
@@ -368,6 +369,15 @@ Send the messages to the child. works like print, you must add "\n".
 
 Send the messages to the child. works like say, adds the seperator for you
 (usually "\n").
+
+=item $child->autoflush( $BOOL )
+
+Turn autoflush on/off for the current processes write handle. This is on by
+default.
+
+=item $child->flush()
+
+Flush the current processes write handle.
 
 =item $child->pid()
 
