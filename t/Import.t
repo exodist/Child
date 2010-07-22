@@ -11,11 +11,14 @@ ok( ! __PACKAGE__->can('child'), "No export by default" );
 
 $CLASS->import('child');
 can_ok( __PACKAGE__, 'child' );
-my $one = child( sub { 1; });
+my $one = child( sub { 1 });
 ok( !$one->ipc, "no ipc by default" );
 
+$one = child( sub { 1 }, pipe => 1 );
+ok( $one->ipc, "ipc by param" );
+
 $CLASS->import(':pipe');
-$one = child( sub { 1; });
+$one = child( sub { 1 });
 ok( $one->ipc, "ipc added" );
 
 done_testing;

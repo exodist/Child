@@ -3,10 +3,10 @@ use strict;
 use warnings;
 use Carp;
 
-our $VERSION = "0.001";
+our $VERSION = "0.002";
 our %META;
 
-for my $reader ( qw/pid ipc exit_status code parent/ ) {
+for my $reader ( qw/pid ipc exit code parent/ ) {
     my $prop = "_$reader";
 
     my $psub = sub {
@@ -42,10 +42,10 @@ sub import {
     1;
 }
 
-sub child(&) {
-    my ( $code ) = @_;
+sub child(&;@) {
+    my ( $code, %params ) = @_;
     my $caller = caller;
-    return __PACKAGE__->new($code, %{$META{$caller}})->start;
+    return __PACKAGE__->new($code, %{$META{$caller}}, %params )->start;
 }
 
 sub new {
@@ -76,19 +76,31 @@ sub start {
 sub is_complete {
     my $self = shift;
     $self->_wait();
-    return defined($self->exit_status);
+    return defined($self->exit);
 }
 
 sub wait {
     my $self = shift;
     return unless $self->_wait(1);
-    return !$self->exit_status;
+    return !$self->exit;
+}
+
+sub exit_status {
+    my $self = shift;
+    return unless $self->is_complete;
+    return ($self->exit >> 8);
+}
+
+sub unix_exit {
+    my $self = shift;
+    return unless $self->is_complete;
+    return $self->exit;
 }
 
 sub _wait {
     my $self = shift;
     my ( $block ) = @_;
-    unless ( defined $self->exit_status ) {
+    unless ( defined $self->exit ) {
         my @flags;
         require POSIX unless $block;
         my $ret;
@@ -100,9 +112,9 @@ sub _wait {
         return 0 unless $ret;
         croak( "wait returned $ret: No such process " . $self->pid )
             if $ret < 0;
-        $self->_exit_status( $? >> 8 );
+        $self->_exit( $? );
     }
-    return defined($self->exit_status);
+    return defined($self->exit);
 }
 
 sub kill {
@@ -182,7 +194,7 @@ __END__
 
 =head1 NAME
 
-Child - Object oriented simple interfare to fork()
+Child - Object oriented simple interface to fork()
 
 =head1 DESCRIPTION
 
@@ -221,29 +233,34 @@ waiting, killing, checking, and even communicating with a child process.
     # Read (non-blocking)
     my $message2 = $child2->read();
 
-    $child2->say("responce");
+    $child2->say("reply");
 
     # Kill the child if it is not done
     $child->complete || $child->kill(9);
 
     $child->wait; #blocking
 
-=head2 SHORTCUT WITHOUT IPC
+=head2 SHORTCUT
 
 Child can export the child(&) shortcut function when requested. This function
 creates and starts the child process.
 
     use Child qw/child/;
-
     my $child = child {
         my $self = shift;
         ...
     };
 
-=head2 SHORTCUT WITH IPC
+You can also request IPC:
 
-To add IPC to children created with child(), import with ':pipe'. How child()
-behaves regarding IPC is lexical to each importing class.
+    use Child qw/child/;
+    my $child = child {
+        my $self = shift;
+        ...
+    } pipe => 1;
+
+To add IPC to children created with child() by default, import with ':pipe'.
+How child() behaves regarding IPC is lexical to each importing class.
 
     use Child qw/child :pipe/;
 
@@ -300,8 +317,19 @@ Returns the child PID (only in parent process).
 
 =item $child->exit_status()
 
-If the child has exited this will contain the status. B<NOTE:> You must call
-wait or is_complete before this field is populated.
+Will be undef unless the process has exited, otherwise it will have the exit
+status.
+
+B<Note>: When you call exit($N) the actual unix exit status will be bit shifed
+with extra information added. exit_status() will shift the value back for you.
+That means exit_status() will return 2 whun your child calls exit(2) see
+unix_exit() if you want the actual value wait() assigned to $?.
+
+=item $child->unix_exit()
+
+When you call exit($N) the actual unix exit status will be bit shifed
+with extra information added. See exit_status() if you want the actual value
+used in exit() in the child.
 
 =item $child->code()
 

@@ -1,5 +1,5 @@
 NAME
-    Child - Object oriented simple interfare to fork()
+    Child - Object oriented simple interface to fork()
 
 DESCRIPTION
     Fork is too low level, and difficult to manage. Often people forget to
@@ -36,27 +36,34 @@ SYNOPSIS
         # Read (non-blocking)
         my $message2 = $child2->read();
 
-        $child2->say("responce");
+        $child2->say("reply");
 
         # Kill the child if it is not done
         $child->complete || $child->kill(9);
 
         $child->wait; #blocking
 
-  SHORTCUT WITHOUT IPC
+  SHORTCUT
     Child can export the child(&) shortcut function when requested. This
     function creates and starts the child process.
 
         use Child qw/child/;
-
         my $child = child {
             my $self = shift;
             ...
         };
 
-  SHORTCUT WITH IPC
-    To add IPC to children created with child(), import with ':pipe'. How
-    child() behaves regarding IPC is lexical to each importing class.
+    You can also request IPC:
+
+        use Child qw/child/;
+        my $child = child {
+            my $self = shift;
+            ...
+        } pipe => 1;
+
+    To add IPC to children created with child() by default, import with
+    ':pipe'. How child() behaves regarding IPC is lexical to each importing
+    class.
 
         use Child qw/child :pipe/;
 
@@ -99,8 +106,19 @@ METHODS
         Returns the child PID (only in parent process).
 
     $child->exit_status()
-        If the child has exited this will contain the status. NOTE: You must
-        call wait or is_complete before this field is populated.
+        Will be undef unless the process has exited, otherwise it will have
+        the exit status.
+
+        Note: When you call exit($N) the actual unix exit status will be bit
+        shifed with extra information added. exit_status() will shift the
+        value back for you. That means exit_status() will return 2 whun your
+        child calls exit(2) see unix_exit() if you want the actual value
+        wait() assigned to $?.
+
+    $child->unix_exit()
+        When you call exit($N) the actual unix exit status will be bit
+        shifed with extra information added. See exit_status() if you want
+        the actual value used in exit() in the child.
 
     $child->code()
         Returns the coderef used to construct the Child.

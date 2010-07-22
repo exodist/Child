@@ -3,7 +3,6 @@ use strict;
 use warnings;
 
 use Test::More;
-use Test::Exception;
 our $CLASS = 'Child';
 
 require_ok( $CLASS );
@@ -11,7 +10,7 @@ require_ok( $CLASS );
 can_ok(
     $CLASS,
     map {( $_, "_$_" )}
-        qw/pid ipc exit_status code parent/
+        qw/pid ipc exit code parent/
 );
 
 my $one = bless( {}, $CLASS );
@@ -50,13 +49,14 @@ $one = $CLASS->new( sub {
     sleep 100;
 })->start;
 
-throws_ok { $one->say("XXX") }
-    qr/Child was created without IPC support./,
-    "No IPC";
+my $ret = eval { $one->say("XXX"); 1 };
+ok( !$ret, "Died, no IPC" );
+like( $@, qr/Child was created without IPC support./, "No IPC" );
 
 ok( $one->kill(2), "Send signal" );
 ok( !$one->wait, "wait" );
 ok( $one->is_complete, "Complete" );
 is( $one->exit_status, 2, "Exit 2" );
+ok( $one->unix_exit > 2, "Real exit" );
 
 done_testing;
