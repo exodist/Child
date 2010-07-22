@@ -31,9 +31,7 @@ SYNOPSIS
         }, pipe => 1 );
 
         # Read (blocking)
-        my $message1 = $child2->read(1);
-
-        # Read (non-blocking)
+        my $message1 = $child2->read();
         my $message2 = $child2->read();
 
         $child2->say("reply");
@@ -72,7 +70,7 @@ SYNOPSIS
             $self->say("message1");
         };
 
-        my $message1 = $child->read(1);
+        my $message1 = $child->read();
 
 CLASS METHODS
     @children = Child->all_children()
@@ -103,9 +101,8 @@ OBJECT METHODS
     $child->kill($SIG)
         Send the $SIG signal to the child process.
 
-    $child->read($BLOCK)
-        Read a message from the child. Takes a single boolean argument; when
-        true the method blocks.
+    $child->read()
+        Read a message from the child.
 
     $child->write( @MESSAGES )
         Send the messages to the child. works like print, you must add "\n".
