@@ -141,11 +141,11 @@ sub kill {
 
 sub _gen_ipc {
     my $class = shift;
-    # Only load if used;
-    require IO::Pipe;
+    pipe( my ( $ain, $aout ));
+    pipe( my ( $bin, $bout ));
     return [
-        IO::Pipe->new,
-        IO::Pipe->new,
+        [ $ain, $aout ],
+        [ $bin, $bout ],
     ];
 }
 
@@ -158,10 +158,9 @@ sub _init_ipc {
             $self->_ipc->[0],
         ]);
     }
-    $self->_read_handle->reader;
-    $self->_read_handle->autoflush(1);
-    $self->_write_handle->writer;
-    $self->_write_handle->autoflush(1);
+    $self->_ipc->[0] = $self->_ipc->[0]->[0];
+    $self->_ipc->[1] = $self->_ipc->[1]->[1];
+    $self->autoflush(1);
 }
 
 sub _read_handle  {
@@ -185,11 +184,32 @@ sub _no_pipe {
     );
 }
 
+sub autoflush {
+    my $self = shift;
+    my ( $value ) = @_;
+    my $write = $self->_write_handle;
+
+    my $selected = select( $write );
+    $| = ($value || undef) if @_;
+    my $out = $|;
+
+    select( $selected );
+
+    return $out;
+}
+
+sub flush {
+    my $self = shift;
+    my $orig = $self->autoflush();
+    $self->autoflush(1);
+    my $write = $self->_write_handle;
+    print $write "";
+    $self->autoflush($orig);
+}
+
 sub read {
     my $self = shift;
-    my ( $block ) = @_;
     my $handle = $self->_read_handle;
-    $handle->blocking( $block ? 1 : 0 );
     return <$handle>;
 }
 
@@ -244,9 +264,7 @@ waiting, killing, checking, and even communicating with a child process.
     }, pipe => 1 );
 
     # Read (blocking)
-    my $message1 = $child2->read(1);
-
-    # Read (non-blocking)
+    my $message1 = $child2->read();
     my $message2 = $child2->read();
 
     $child2->say("reply");
@@ -285,7 +303,7 @@ How child() behaves regarding IPC is lexical to each importing class.
         $self->say("message1");
     };
 
-    my $message1 = $child->read(1);
+    my $message1 = $child->read();
 
 =head1 CLASS METHODS
 
@@ -338,10 +356,9 @@ Wait on the child (blocking)
 
 Send the $SIG signal to the child process.
 
-=item $child->read($BLOCK)
+=item $child->read()
 
-Read a message from the child. Takes a single boolean argument; when true the
-method blocks.
+Read a message from the child.
 
 =item $child->write( @MESSAGES )
 

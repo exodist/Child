@@ -25,13 +25,13 @@ $one = $CLASS->new( sub {
     my $self = shift;
     $self->say( "Have self" );
     $self->say( "parent: " . $self->parent );
-    my $in = $self->read(1);
+    my $in = $self->read();
     $self->say( $in );
 }, pipe => 1 );
 
 $one->start;
-is( $one->read(1), "Have self\n", "child has self" );
-is( $one->read(1), "parent: $$\n", "child has parent PID" );
+is( $one->read(), "Have self\n", "child has self" );
+is( $one->read(), "parent: $$\n", "child has parent PID" );
 {
     local $SIG{ALRM} = sub { die "non-blocking timeout" };
     alarm 5;
@@ -39,7 +39,7 @@ is( $one->read(1), "parent: $$\n", "child has parent PID" );
     alarm 0;
 }
 $one->say("XXX");
-is( $one->read(1), "XXX\n", "Full IPC" );
+is( $one->read(), "XXX\n", "Full IPC" );
 ok( $one->wait, "wait" );
 ok( $one->is_complete, "Complete" );
 is( $one->exit_status, 0, "Exit clean" );
