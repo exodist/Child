@@ -111,6 +111,13 @@ OBJECT METHODS
         Send the messages to the child. works like say, adds the seperator
         for you (usually "\n").
 
+    $child->autoflush( $BOOL )
+        Turn autoflush on/off for the current processes write handle. This
+        is on by default.
+
+    $child->flush()
+        Flush the current processes write handle.
+
     $child->pid()
         Returns the child PID (only in parent process).
 
@@ -135,9 +142,15 @@ OBJECT METHODS
     $child->parent()
         Returns the parent processes PID. (Only in child)
 
+    $child->detach()
+        Detach the child from the parent. uses POSIX::setsid(). When called
+        in the child it simply calls setsid. When called from the parent the
+        USR1 signal is sent to the child which triggers the child to call
+        setsid.
+
 HISTORY
     Most of this was part of Parrallel::Runner intended for use in the
-    Fennec project. Fennec is being brocken into multiple parts, this is one
+    Fennec project. Fennec is being broken into multiple parts, this is one
     such part.
 
 FENNEC PROJECT
