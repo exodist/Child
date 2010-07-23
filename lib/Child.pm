@@ -3,11 +3,11 @@ use strict;
 use warnings;
 use Carp;
 
-our $VERSION = "0.005";
+our $VERSION = "0.006";
 our %META;
 our @CHILDREN;
 
-for my $reader ( qw/pid ipc exit code parent/ ) {
+for my $reader ( qw/pid ipc exit code parent detached/ ) {
     my $prop = "_$reader";
 
     my $psub = sub {
@@ -82,6 +82,7 @@ sub start {
         @CHILDREN = ();
         $self->_parent( $parent );
         $self->_init_ipc if $self->ipc;
+        local $SIG{USR1} = sub { $self->detach };
         my $code = $self->code;
         $self->$code();
         exit;
@@ -190,8 +191,7 @@ sub autoflush {
     my $write = $self->_write_handle;
 
     my $selected = select( $write );
-    no warnings 'uninitialized';
-    $| = ($value || undef) if @_;
+    $| = $value if @_;
     my $out = $|;
 
     select( $selected );
@@ -204,7 +204,6 @@ sub flush {
     my $orig = $self->autoflush();
     $self->autoflush(1);
     my $write = $self->_write_handle;
-#    print $write "";
     $self->autoflush($orig);
 }
 
@@ -223,6 +222,26 @@ sub write {
     my $self = shift;
     my $handle = $self->_write_handle;
     print $handle @_;
+}
+
+sub detach {
+    my $self = shift;
+    return $self->_detach_as_parent if $self->pid;
+    return $self->_detach_as_child if $self->parent;
+    croak( "Nothing to detach" )
+}
+
+sub _detach_as_parent {
+    my $self = shift;
+    require POSIX;
+    $self->kill(POSIX::SIGUSR1());
+}
+
+sub _detach_as_child {
+    my $self = shift;
+    require POSIX;
+    $self->_detached( POSIX::setsid() )
+        || die "Cannot detach from parent $!";
 }
 
 1;
@@ -407,12 +426,18 @@ Returns the coderef used to construct the Child.
 
 Returns the parent processes PID. (Only in child)
 
+=item $child->detach()
+
+Detach the child from the parent. uses POSIX::setsid(). When called in the
+child it simply calls setsid. When called from the parent the USR1 signal is
+sent to the child which triggers the child to call setsid.
+
 =back
 
 =head1 HISTORY
 
 Most of this was part of L<Parrallel::Runner> intended for use in the L<Fennec>
-project. Fennec is being brocken into multiple parts, this is one such part.
+project. Fennec is being broken into multiple parts, this is one such part.
 
 =head1 FENNEC PROJECT
 

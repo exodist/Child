@@ -44,15 +44,22 @@ ok( $one->wait, "wait" );
 ok( $one->is_complete, "Complete" );
 is( $one->exit_status, 0, "Exit clean" );
 
-$one = $CLASS->new( sub {
-    $SIG{INT} = sub { exit( 2 ) };
-    sleep 100;
-})->start;
+$one = $CLASS->new( sub { sleep 100 } )->start;
 
 my $ret = eval { $one->say("XXX"); 1 };
 ok( !$ret, "Died, no IPC" );
 like( $@, qr/Child was created without IPC support./, "No IPC" );
+$one->kill(2);
 
+$one = $CLASS->new( sub {
+    my $self = shift;
+    $SIG{INT} = sub { exit( 2 ) };
+    $self->say( "go" );
+    sleep 100;
+}, pipe => 1 )->start;
+
+$one->read;
+sleep 1;
 ok( $one->kill(2), "Send signal" );
 ok( !$one->wait, "wait" );
 ok( $one->is_complete, "Complete" );
@@ -76,5 +83,28 @@ is( $one->read(), "B\n", "B" );
 my $end = time;
 
 ok( $end - $start > 2, "No autoflush" );
+
+$one = $CLASS->new( sub {
+    my $self = shift;
+    $self->detach;
+    $self->say( $self->detached );
+}, pipe => 1 )->start;
+
+is( $one->read(), $one->pid . "\n", "Child detached" );
+
+
+$one = $CLASS->new( sub {
+    my $self = shift;
+    $self->say( "go" );
+    $self->read;
+    $self->say( $self->detached );
+}, pipe => 1 )->start;
+
+$one->read();
+$one->detach;
+sleep 1;
+$one->say("go");
+
+is( $one->read(), $one->pid . "\n", "Child detached remotely" );
 
 done_testing;
