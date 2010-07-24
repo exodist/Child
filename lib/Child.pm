@@ -2,246 +2,73 @@ package Child;
 use strict;
 use warnings;
 use Carp;
+use Child::Util;
+use Child::Link::Proc;
+use Child::Link::Parent;
 
-our $VERSION = "0.006";
-our %META;
-our @CHILDREN;
+use base 'Exporter';
 
-for my $reader ( qw/pid ipc exit code parent detached/ ) {
-    my $prop = "_$reader";
+our $VERSION = "0.007";
+our @PROCS;
+our @EXPORT_OK = qw/child/;
 
-    my $psub = sub {
-        my $self = shift;
-        ($self->{ $prop }) = @_ if @_;
-        return $self->{ $prop };
-    };
-
-    my $rsub = sub {
-        my $self = shift;
-        return $self->$prop();
-    };
-
-    no strict 'refs';
-    *$reader = $rsub;
-    *$prop = $psub;
-}
-
-sub import {
-    my $class = shift;
-    my $caller = caller;
-    my @import;
-    for ( @_ ) {
-        if ( m/^:(.+)$/ ) {
-            $META{$caller}->{$1}++
-        }
-        else {
-            no strict 'refs';
-            *{"$caller\::$_"} = $class->can( $_ )
-                || croak "'$_' is not exported by $class.";
-        }
-    }
-    1;
-}
+add_accessors qw/code/;
 
 sub child(&;@) {
-    my ( $code, %params ) = @_;
+    my ( $code, @params ) = @_;
     my $caller = caller;
-    return __PACKAGE__->new($code, %{$META{$caller}}, %params )->start;
+    return __PACKAGE__->new( $code, @params )->start;
 }
 
-sub all_children { @CHILDREN }
+sub all_procs { @PROCS }
 
-sub all_child_pids {
+sub all_proc_pids {
     my $class = shift;
-    map { $_->pid } $class->all_children;
+    map { $_->pid } $class->all_procs;
 }
 
 sub wait_all {
     my $class = shift;
-    $_->wait() for $class->all_children;
-    1;
+    $_->wait() for $class->all_procs;
 }
 
 sub new {
-    my ( $class, $code, %params ) = @_;
-    my %proto = ( _code => $code );
-    $proto{_ipc} = $class->_gen_ipc()
-        if $params{pipe};
-    return bless( \%proto, $class );
+    my ( $class, $code, $plugin, @data ) = @_;
+
+    return bless( { _code => $code }, $class )
+        unless $plugin;
+
+    my $build = __PACKAGE__;
+    $build .= '::IPC::' . ucfirst $plugin;
+
+    eval "require $build; 1"
+        || croak( "Could not load plugin '$plugin': $@" );
+
+    return $build->new( $code, @data );
 }
+
+sub shared_data {}
+
+sub child_class  { 'Child::Link::Proc'  }
+sub parent_class { 'Child::Link::Parent' }
 
 sub start {
     my $self = shift;
-    my $parent = $$;
+    my $ppid = $$;
+    my @data = $self->shared_data;
+
     if ( my $pid = fork() ) {
-        $self->_pid( $pid );
-        push @CHILDREN => $self;
-        $self->_init_ipc if $self->ipc;
+        my $proc = $self->child_class->new( $pid, @data );
+        push @PROCS => $proc;
+        return $proc;
     }
-    else {
-        @CHILDREN = ();
-        $self->_parent( $parent );
-        $self->_init_ipc if $self->ipc;
-        local $SIG{USR1} = sub { $self->detach };
-        my $code = $self->code;
-        $self->$code();
-        exit;
-    }
-    return $self;
-}
 
-sub is_complete {
-    my $self = shift;
-    $self->_wait();
-    return defined($self->exit);
-}
-
-sub wait {
-    my $self = shift;
-    return unless $self->_wait(1);
-    return !$self->exit;
-}
-
-sub exit_status {
-    my $self = shift;
-    return unless $self->is_complete;
-    return ($self->exit >> 8);
-}
-
-sub unix_exit {
-    my $self = shift;
-    return unless $self->is_complete;
-    return $self->exit;
-}
-
-sub _wait {
-    my $self = shift;
-    my ( $block ) = @_;
-    unless ( defined $self->exit ) {
-        my @flags;
-        require POSIX unless $block;
-        my $ret;
-        my $x = 1;
-        do {
-            sleep(1) if defined $ret;
-            $ret = waitpid( $self->pid, $block ? 0 : &POSIX::WNOHANG );
-        } while ( $block && !$ret );
-        return 0 unless $ret;
-        croak( "wait returned $ret: No such process " . $self->pid )
-            if $ret < 0;
-        $self->_exit( $? );
-    }
-    return defined($self->exit);
-}
-
-sub kill {
-    my $self = shift;
-    my ( $sig ) = @_;
-    kill( $sig, $self->pid );
-}
-
-sub _gen_ipc {
-    my $class = shift;
-    pipe( my ( $ain, $aout ));
-    pipe( my ( $bin, $bout ));
-    return [
-        [ $ain, $aout ],
-        [ $bin, $bout ],
-    ];
-}
-
-sub _init_ipc {
-    my $self = shift;
-    # Cross the pipes.
-    if ( $self->parent ) {
-        $self->_ipc([
-            $self->_ipc->[1],
-            $self->_ipc->[0],
-        ]);
-    }
-    $self->_ipc->[0] = $self->_ipc->[0]->[0];
-    $self->_ipc->[1] = $self->_ipc->[1]->[1];
-    $self->autoflush(1);
-}
-
-sub _read_handle  {
-    my $self = shift;
-    $self->_no_pipe unless $self->_ipc;
-    return $self->_ipc->[0];
-}
-
-sub _write_handle {
-    my $self = shift;
-    $self->_no_pipe unless $self->_ipc;
-    return $self->_ipc->[1];
-}
-
-sub _no_pipe {
-    croak(
-        "Child was created without IPC support.",
-        "To enable IPC construct the child with Child->new( sub { ... }, pipe => 1 )",
-        "If you use child { ... }; then import Child with the ':pipe' argumunt",
-        "use Child qw/child :pipe/",
-    );
-}
-
-sub autoflush {
-    my $self = shift;
-    my ( $value ) = @_;
-    my $write = $self->_write_handle;
-
-    my $selected = select( $write );
-    $| = $value if @_;
-    my $out = $|;
-
-    select( $selected );
-
-    return $out;
-}
-
-sub flush {
-    my $self = shift;
-    my $orig = $self->autoflush();
-    $self->autoflush(1);
-    my $write = $self->_write_handle;
-    $self->autoflush($orig);
-}
-
-sub read {
-    my $self = shift;
-    my $handle = $self->_read_handle;
-    return <$handle>;
-}
-
-sub say {
-    my $self = shift;
-    $self->write( map {$_ . $/} @_ );
-}
-
-sub write {
-    my $self = shift;
-    my $handle = $self->_write_handle;
-    print $handle @_;
-}
-
-sub detach {
-    my $self = shift;
-    return $self->_detach_as_parent if $self->pid;
-    return $self->_detach_as_child if $self->parent;
-    croak( "Nothing to detach" )
-}
-
-sub _detach_as_parent {
-    my $self = shift;
-    require POSIX;
-    $self->kill(POSIX::SIGUSR1());
-}
-
-sub _detach_as_child {
-    my $self = shift;
-    require POSIX;
-    $self->_detached( POSIX::setsid() )
-        || die "Cannot detach from parent $!";
+    # In the child
+    @PROCS = ();
+    my $parent = $self->parent_class->new( $ppid, @data );
+    my $code = $self->code;
+    $code->( $parent );
+    exit;
 }
 
 1;
@@ -270,10 +97,18 @@ waiting, killing, checking, and even communicating with a child process.
     use Child;
 
     my $child = Child->new(sub {
-        my $self = shift;
+        my ( $parent ) = @_;
         ....
         # exit() is called for you at the end.
     });
+    my $proc = $child->start
+
+    # Kill the child if it is not done
+    $proc->complete || $proc->kill(9);
+
+    $proc->wait; #blocking
+
+=head2 IPC
 
     # Build with IPC
     my $child2 = Child->new(sub {
@@ -282,65 +117,81 @@ waiting, killing, checking, and even communicating with a child process.
         $self->say("message2");
         my $reply = $self->read(1);
     }, pipe => 1 );
+    my $proc2 = $child2->start;
 
     # Read (blocking)
-    my $message1 = $child2->read();
-    my $message2 = $child2->read();
+    my $message1 = $proc2->read();
+    my $message2 = $proc2->read();
 
-    $child2->say("reply");
-
-    # Kill the child if it is not done
-    $child->complete || $child->kill(9);
-
-    $child->wait; #blocking
+    $proc2->say("reply");
 
 =head2 SHORTCUT
 
-Child can export the child(&) shortcut function when requested. This function
-creates and starts the child process.
+Child can export the child() shortcut function when requested. This function
+creates and starts the child process in one action.
 
     use Child qw/child/;
-    my $child = child {
-        my $self = shift;
+
+    my $proc = child {
+        my $parent = shift;
         ...
     };
 
 You can also request IPC:
 
     use Child qw/child/;
+
     my $child = child {
-        my $self = shift;
+        my $parent = shift;
         ...
     } pipe => 1;
 
-To add IPC to children created with child() by default, import with ':pipe'.
-How child() behaves regarding IPC is lexical to each importing class.
+=head1 DETAILS
 
-    use Child qw/child :pipe/;
+First you define a child, you do this by constructing a L<Child> object.
+Defining a child does not start a new process, it is just the way to define
+what the new process will look like. Once you have defined the child you can
+start the process by calling $child->start(). One child object can start as
+many processes as you like.
 
-    my $child = child {
-        my $self = shift;
-        $self->say("message1");
-    };
+When you start a child an L<Child::Link::Proc> object is returned. This object
+provides multiple useful methods for interacting with your process. Within the
+process itself an L<Child::Link::Parent> is created and passed as the only
+parameter to the function used to define the child. The parent object is how
+the child interacts with its parent.
 
-    my $message1 = $child->read();
-
-=head1 CLASS METHODS
+=head1 PROCESS MANAGEMENT METHODS
 
 =over 4
 
-=item @children = Child->all_children()
+=item @procs = Child->all_procs()
 
-Get a list of all the children that have been started. This list is cleared in
-children when they are started.
+Get a list of all the processes that have been started. This list is cleared in
+processes when they are started; that is a child will not list its siblings.
 
-=item @pids = Child->all_child_pids()
+=item @pids = Child->all_proc_pids()
 
-Get a list of all the pids of children that have been started.
+Get a list of all the pids of processes that have been started.
 
 =item Child->wait_all()
 
-Call wait() on all children.
+Call wait() on all processes.
+
+=back
+
+=head1 EXPORTS
+
+=over 4
+
+=item $proc = child( sub { ... } )
+
+=item $proc = child { ... }
+
+=item $proc = child( sub { ... }, $plugin, @data )
+
+=item $proc = child { ... } $plugin => @data
+
+Create and start a process in one action.
 
 =back
 
@@ -348,9 +199,9 @@ Call wait() on all children.
 
 =over 4
 
-=item $class->new( sub { ... } )
+=item $child = Child->new( sub { ... } )
 
-=item $class->new( sub { ... }, pipe => 1 )
+=item $child = Child->new( sub { ... }, $plugin, @plugin_data )
 
 Create a new Child object. Does not start the child.
 
@@ -360,77 +211,28 @@ Create a new Child object. Does not start the child.
 
 =over
 
-=item $child->start()
+=item $proc = $child->start()
 
 Start the child process.
 
-=item $bool = $child->is_complete()
+=back
 
-Check if the child is finished (non-blocking)
+=head1 SEE ALSO
 
-=item $child->wait()
+=over 4
 
-Wait on the child (blocking)
+=item L<Child::Link::Proc>
 
-=item $child->kill($SIG)
+The proc object that is returned by $child->start()
 
-Send the $SIG signal to the child process.
+=item L<Child::Link::Parent>
 
-=item $child->read()
+The parent object that is provided as the argumunt to the function used to
+define the child.
 
-Read a message from the child.
+=item L<Child::Link::IPC>
 
-=item $child->write( @MESSAGES )
-
-Send the messages to the child. works like print, you must add "\n".
-
-=item $child->say( @MESSAGES )
-
-Send the messages to the child. works like say, adds the seperator for you
-(usually "\n").
-
-=item $child->autoflush( $BOOL )
-
-Turn autoflush on/off for the current processes write handle. This is on by
-default.
-
-=item $child->flush()
-
-Flush the current processes write handle.
-
-=item $child->pid()
-
-Returns the child PID (only in parent process).
-
-=item $child->exit_status()
-
-Will be undef unless the process has exited, otherwise it will have the exit
-status.
-
-B<Note>: When you call exit($N) the actual unix exit status will be bit shifed
-with extra information added. exit_status() will shift the value back for you.
-That means exit_status() will return 2 whun your child calls exit(2) see
-unix_exit() if you want the actual value wait() assigned to $?.
-
-=item $child->unix_exit()
-
-When you call exit($N) the actual unix exit status will be bit shifed
-with extra information added. See exit_status() if you want the actual value
-used in exit() in the child.
-
-=item $child->code()
-
-Returns the coderef used to construct the Child.
-
-=item $child->parent()
-
-Returns the parent processes PID. (Only in child)
-
-=item $child->detach()
-
-Detach the child from the parent. uses POSIX::setsid(). When called in the
-child it simply calls setsid. When called from the parent the USR1 signal is
-sent to the child which triggers the child to call setsid.
+The base class for IPC plugin link objects. This provides the IPC methods.
 
 =back
 

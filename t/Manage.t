@@ -6,18 +6,19 @@ use Test::More;
 our $CLASS = 'Child';
 require_ok( $CLASS );
 
-my @all = map { $CLASS->new(sub { 1 }) } 1 .. 4;
-my @get = $CLASS->all_children;
+my @children = map { $CLASS->new(sub { 1 }) } 1 .. 4;
+my @get = $CLASS->all_procs;
 is( @get, 0, "0 children started" );
 
-$_->start for @all;
+my @all;
+push @all => $_->start for @children;
 
-@get = $CLASS->all_children;
+@get = $CLASS->all_procs;
 is( @get, 4, "4 children" );
 is_deeply( \@get, \@all, "Exact list" );
 
 is_deeply(
-    [ $CLASS->all_child_pids ],
+    [ $CLASS->all_proc_pids ],
     [ map { $_->pid } @all ],
     "pids"
 );
