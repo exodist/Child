@@ -217,6 +217,25 @@ Start the child process.
 
 =back
 
+=head1 SEE ALSO
+
+=over 4
+
+=item L<Child::Link::Proc>
+
+The proc object that is returned by $child->start()
+
+=item L<Child::Link::Parent>
+
+The parent object that is provided as the argumunt to the function used to
+define the child.
+
+=item L<Child::Link::IPC>
+
+The base class for IPC plugin link objects. This provides the IPC methods.
+
+=back
+
 =head1 HISTORY
 
 Most of this was part of L<Parrallel::Runner> intended for use in the L<Fennec>

@@ -105,6 +105,18 @@ OBJECT METHODS
     $proc = $child->start()
         Start the child process.
 
+SEE ALSO
+    Child::Link::Proc
+        The proc object that is returned by $child->start()
+
+    Child::Link::Parent
+        The parent object that is provided as the argumunt to the function
+        used to define the child.
+
+    Child::Link::IPC
+        The base class for IPC plugin link objects. This provides the IPC
+        methods.
+
 HISTORY
     Most of this was part of Parrallel::Runner intended for use in the
     Fennec project. Fennec is being broken into multiple parts, this is one
