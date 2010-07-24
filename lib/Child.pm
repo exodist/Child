@@ -3,13 +3,13 @@ use strict;
 use warnings;
 use Carp;
 use Child::Util;
-use Child::Link::Child;
+use Child::Link::Proc;
 use Child::Link::Parent;
 
 use base 'Exporter';
 
 our $VERSION = "0.007";
-our @CHILDREN;
+our @PROCS;
 our @EXPORT_OK = qw/child/;
 
 add_accessors qw/code/;
@@ -20,16 +20,16 @@ sub child(&;@) {
     return __PACKAGE__->new( $code, @params )->start;
 }
 
-sub all_children { @CHILDREN }
+sub all_procs { @PROCS }
 
-sub all_child_pids {
+sub all_proc_pids {
     my $class = shift;
-    map { $_->pid } $class->all_children;
+    map { $_->pid } $class->all_procs;
 }
 
 sub wait_all {
     my $class = shift;
-    $_->wait() for $class->all_children;
+    $_->wait() for $class->all_procs;
 }
 
 sub new {
@@ -49,7 +49,7 @@ sub new {
 
 sub shared_data {}
 
-sub child_class  { 'Child::Link::Child'  }
+sub child_class  { 'Child::Link::Proc'  }
 sub parent_class { 'Child::Link::Parent' }
 
 sub start {
@@ -59,12 +59,12 @@ sub start {
 
     if ( my $pid = fork() ) {
         my $proc = $self->child_class->new( $pid, @data );
-        push @CHILDREN => $proc;
+        push @PROCS => $proc;
         return $proc;
     }
 
     # In the child
-    @CHILDREN = ();
+    @PROCS = ();
     my $parent = $self->parent_class->new( $ppid, @data );
     my $code = $self->code;
     $code->( $parent );
@@ -97,10 +97,18 @@ waiting, killing, checking, and even communicating with a child process.
     use Child;
 
     my $child = Child->new(sub {
-        my $self = shift;
+        my ( $parent ) = @_;
         ....
         # exit() is called for you at the end.
     });
+    my $proc = $child->start
+
+    # Kill the child if it is not done
+    $proc->complete || $proc->kill(9);
+
+    $proc->wait; #blocking
+
+=head2 IPC
 
     # Build with IPC
     my $child2 = Child->new(sub {
@@ -109,65 +117,81 @@ waiting, killing, checking, and even communicating with a child process.
         $self->say("message2");
         my $reply = $self->read(1);
     }, pipe => 1 );
+    my $proc2 = $child2->start;
 
     # Read (blocking)
-    my $message1 = $child2->read();
-    my $message2 = $child2->read();
+    my $message1 = $proc2->read();
+    my $message2 = $proc2->read();
 
-    $child2->say("reply");
-
-    # Kill the child if it is not done
-    $child->complete || $child->kill(9);
-
-    $child->wait; #blocking
+    $proc2->say("reply");
 
 =head2 SHORTCUT
 
-Child can export the child(&) shortcut function when requested. This function
-creates and starts the child process.
+Child can export the child() shortcut function when requested. This function
+creates and starts the child process in one action.
 
     use Child qw/child/;
-    my $child = child {
-        my $self = shift;
+
+    my $proc = child {
+        my $parent = shift;
         ...
     };
 
 You can also request IPC:
 
     use Child qw/child/;
+
     my $child = child {
-        my $self = shift;
+        my $parent = shift;
         ...
     } pipe => 1;
 
-To add IPC to children created with child() by default, import with ':pipe'.
-How child() behaves regarding IPC is lexical to each importing class.
+=head1 DETAILS
 
-    use Child qw/child :pipe/;
+First you define a child, you do this by constructing a L<Child> object.
+Defining a child does not start a new process, it is just the way to define
+what the new process will look like. Once you have defined the child you can
+start the process by calling $child->start(). One child object can start as
+many processes as you like.
 
-    my $child = child {
-        my $self = shift;
-        $self->say("message1");
-    };
+When you start a child an L<Child::Link::Proc> object is returned. This object
+provides multiple useful methods for interacting with your process. Within the
+process itself an L<Child::Link::Parent> is created and passed as the only
+parameter to the function used to define the child. The parent object is how
+the child interacts with its parent.
 
-    my $message1 = $child->read();
-
-=head1 CLASS METHODS
+=head1 PROCESS MANAGEMENT METHODS
 
 =over 4
 
-=item @children = Child->all_children()
+=item @procs = Child->all_procs()
 
-Get a list of all the children that have been started. This list is cleared in
-children when they are started.
+Get a list of all the processes that have been started. This list is cleared in
+processes when they are started; that is a child will not list its siblings.
 
-=item @pids = Child->all_child_pids()
+=item @pids = Child->all_proc_pids()
 
-Get a list of all the pids of children that have been started.
+Get a list of all the pids of processes that have been started.
 
 =item Child->wait_all()
 
-Call wait() on all children.
+Call wait() on all processes.
+
+=back
+
+=head1 EXPORTS
+
+=over 4
+
+=item $proc = child( sub { ... } )
+
+=item $proc = child { ... }
+
+=item $proc = child( sub { ... }, $plugin, @data )
+
+=item $proc = child { ... } $plugin => @data
+
+Create and start a process in one action.
 
 =back
 
@@ -175,9 +199,9 @@ Call wait() on all children.
 
 =over 4
 
-=item $class->new( sub { ... } )
+=item $child = Child->new( sub { ... } )
 
-=item $class->new( sub { ... }, pipe => 1 )
+=item $child = Child->new( sub { ... }, $plugin, @plugin_data )
 
 Create a new Child object. Does not start the child.
 
@@ -187,77 +211,9 @@ Create a new Child object. Does not start the child.
 
 =over
 
-=item $child->start()
+=item $proc = $child->start()
 
 Start the child process.
-
-=item $bool = $child->is_complete()
-
-Check if the child is finished (non-blocking)
-
-=item $child->wait()
-
-Wait on the child (blocking)
-
-=item $child->kill($SIG)
-
-Send the $SIG signal to the child process.
-
-=item $child->read()
-
-Read a message from the child.
-
-=item $child->write( @MESSAGES )
-
-Send the messages to the child. works like print, you must add "\n".
-
-=item $child->say( @MESSAGES )
-
-Send the messages to the child. works like say, adds the seperator for you
-(usually "\n").
-
-=item $child->autoflush( $BOOL )
-
-Turn autoflush on/off for the current processes write handle. This is on by
-default.
-
-=item $child->flush()
-
-Flush the current processes write handle.
-
-=item $child->pid()
-
-Returns the child PID (only in parent process).
-
-=item $child->exit_status()
-
-Will be undef unless the process has exited, otherwise it will have the exit
-status.
-
-B<Note>: When you call exit($N) the actual unix exit status will be bit shifed
-with extra information added. exit_status() will shift the value back for you.
-That means exit_status() will return 2 whun your child calls exit(2) see
-unix_exit() if you want the actual value wait() assigned to $?.
-
-=item $child->unix_exit()
-
-When you call exit($N) the actual unix exit status will be bit shifed
-with extra information added. See exit_status() if you want the actual value
-used in exit() in the child.
-
-=item $child->code()
-
-Returns the coderef used to construct the Child.
-
-=item $child->parent()
-
-Returns the parent processes PID. (Only in child)
-
-=item $child->detach()
-
-Detach the child from the parent. uses POSIX::setsid(). When called in the
-child it simply calls setsid. When called from the parent the USR1 signal is
-sent to the child which triggers the child to call setsid.
 
 =back
 

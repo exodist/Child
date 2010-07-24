@@ -2,12 +2,12 @@ package Child::IPC::Pipe;
 use strict;
 use warnings;
 
-use Child::Link::IPC::Pipe::Child;
+use Child::Link::IPC::Pipe::Proc;
 use Child::Link::IPC::Pipe::Parent;
 
 use base 'Child';
 
-sub child_class  { 'Child::Link::IPC::Pipe::Child'  }
+sub child_class  { 'Child::Link::IPC::Pipe::Proc'   }
 sub parent_class { 'Child::Link::IPC::Pipe::Parent' }
 
 sub shared_data {
