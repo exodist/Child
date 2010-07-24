@@ -2,51 +2,22 @@ package Child;
 use strict;
 use warnings;
 use Carp;
+use Child::Util;
+use Child::Link::Child;
+use Child::Link::Parent;
 
-our $VERSION = "0.006";
-our %META;
+use base 'Exporter';
+
+our $VERSION = "0.007";
 our @CHILDREN;
+our @EXPORT_OK = qw/child/;
 
-for my $reader ( qw/pid ipc exit code parent detached/ ) {
-    my $prop = "_$reader";
-
-    my $psub = sub {
-        my $self = shift;
-        ($self->{ $prop }) = @_ if @_;
-        return $self->{ $prop };
-    };
-
-    my $rsub = sub {
-        my $self = shift;
-        return $self->$prop();
-    };
-
-    no strict 'refs';
-    *$reader = $rsub;
-    *$prop = $psub;
-}
-
-sub import {
-    my $class = shift;
-    my $caller = caller;
-    my @import;
-    for ( @_ ) {
-        if ( m/^:(.+)$/ ) {
-            $META{$caller}->{$1}++
-        }
-        else {
-            no strict 'refs';
-            *{"$caller\::$_"} = $class->can( $_ )
-                || croak "'$_' is not exported by $class.";
-        }
-    }
-    1;
-}
+add_accessors qw/code/;
 
 sub child(&;@) {
-    my ( $code, %params ) = @_;
+    my ( $code, @params ) = @_;
     my $caller = caller;
-    return __PACKAGE__->new($code, %{$META{$caller}}, %params )->start;
+    return __PACKAGE__->new( $code, @params )->start;
 }
 
 sub all_children { @CHILDREN }
@@ -59,189 +30,45 @@ sub all_child_pids {
 sub wait_all {
     my $class = shift;
     $_->wait() for $class->all_children;
-    1;
 }
 
 sub new {
-    my ( $class, $code, %params ) = @_;
-    my %proto = ( _code => $code );
-    $proto{_ipc} = $class->_gen_ipc()
-        if $params{pipe};
-    return bless( \%proto, $class );
+    my ( $class, $code, $plugin, @data ) = @_;
+
+    return bless( { _code => $code }, $class )
+        unless $plugin;
+
+    my $build = __PACKAGE__;
+    $build .= '::IPC::' . ucfirst $plugin;
+
+    eval "require $build; 1"
+        || croak( "Could not load plugin '$plugin': $@" );
+
+    return $build->new( $code, @data );
 }
+
+sub shared_data {}
+
+sub child_class  { 'Child::Link::Child'  }
+sub parent_class { 'Child::Link::Parent' }
 
 sub start {
     my $self = shift;
-    my $parent = $$;
+    my $ppid = $$;
+    my @data = $self->shared_data;
+
     if ( my $pid = fork() ) {
-        $self->_pid( $pid );
-        push @CHILDREN => $self;
-        $self->_init_ipc if $self->ipc;
+        my $proc = $self->child_class->new( $pid, @data );
+        push @CHILDREN => $proc;
+        return $proc;
     }
-    else {
-        @CHILDREN = ();
-        $self->_parent( $parent );
-        $self->_init_ipc if $self->ipc;
-        local $SIG{USR1} = sub { $self->detach };
-        my $code = $self->code;
-        $self->$code();
-        exit;
-    }
-    return $self;
-}
 
-sub is_complete {
-    my $self = shift;
-    $self->_wait();
-    return defined($self->exit);
-}
-
-sub wait {
-    my $self = shift;
-    return unless $self->_wait(1);
-    return !$self->exit;
-}
-
-sub exit_status {
-    my $self = shift;
-    return unless $self->is_complete;
-    return ($self->exit >> 8);
-}
-
-sub unix_exit {
-    my $self = shift;
-    return unless $self->is_complete;
-    return $self->exit;
-}
-
-sub _wait {
-    my $self = shift;
-    my ( $block ) = @_;
-    unless ( defined $self->exit ) {
-        my @flags;
-        require POSIX unless $block;
-        my $ret;
-        my $x = 1;
-        do {
-            sleep(1) if defined $ret;
-            $ret = waitpid( $self->pid, $block ? 0 : &POSIX::WNOHANG );
-        } while ( $block && !$ret );
-        return 0 unless $ret;
-        croak( "wait returned $ret: No such process " . $self->pid )
-            if $ret < 0;
-        $self->_exit( $? );
-    }
-    return defined($self->exit);
-}
-
-sub kill {
-    my $self = shift;
-    my ( $sig ) = @_;
-    kill( $sig, $self->pid );
-}
-
-sub _gen_ipc {
-    my $class = shift;
-    pipe( my ( $ain, $aout ));
-    pipe( my ( $bin, $bout ));
-    return [
-        [ $ain, $aout ],
-        [ $bin, $bout ],
-    ];
-}
-
-sub _init_ipc {
-    my $self = shift;
-    # Cross the pipes.
-    if ( $self->parent ) {
-        $self->_ipc([
-            $self->_ipc->[1],
-            $self->_ipc->[0],
-        ]);
-    }
-    $self->_ipc->[0] = $self->_ipc->[0]->[0];
-    $self->_ipc->[1] = $self->_ipc->[1]->[1];
-    $self->autoflush(1);
-}
-
-sub _read_handle  {
-    my $self = shift;
-    $self->_no_pipe unless $self->_ipc;
-    return $self->_ipc->[0];
-}
-
-sub _write_handle {
-    my $self = shift;
-    $self->_no_pipe unless $self->_ipc;
-    return $self->_ipc->[1];
-}
-
-sub _no_pipe {
-    croak(
-        "Child was created without IPC support.",
-        "To enable IPC construct the child with Child->new( sub { ... }, pipe => 1 )",
-        "If you use child { ... }; then import Child with the ':pipe' argumunt",
-        "use Child qw/child :pipe/",
-    );
-}
-
-sub autoflush {
-    my $self = shift;
-    my ( $value ) = @_;
-    my $write = $self->_write_handle;
-
-    my $selected = select( $write );
-    $| = $value if @_;
-    my $out = $|;
-
-    select( $selected );
-
-    return $out;
-}
-
-sub flush {
-    my $self = shift;
-    my $orig = $self->autoflush();
-    $self->autoflush(1);
-    my $write = $self->_write_handle;
-    $self->autoflush($orig);
-}
-
-sub read {
-    my $self = shift;
-    my $handle = $self->_read_handle;
-    return <$handle>;
-}
-
-sub say {
-    my $self = shift;
-    $self->write( map {$_ . $/} @_ );
-}
-
-sub write {
-    my $self = shift;
-    my $handle = $self->_write_handle;
-    print $handle @_;
-}
-
-sub detach {
-    my $self = shift;
-    return $self->_detach_as_parent if $self->pid;
-    return $self->_detach_as_child if $self->parent;
-    croak( "Nothing to detach" )
-}
-
-sub _detach_as_parent {
-    my $self = shift;
-    require POSIX;
-    $self->kill(POSIX::SIGUSR1());
-}
-
-sub _detach_as_child {
-    my $self = shift;
-    require POSIX;
-    $self->_detached( POSIX::setsid() )
-        || die "Cannot detach from parent $!";
+    # In the child
+    @CHILDREN = ();
+    my $parent = $self->parent_class->new( $ppid, @data );
+    my $code = $self->code;
+    $code->( $parent );
+    exit;
 }
 
 1;
