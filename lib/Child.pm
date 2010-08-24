@@ -6,7 +6,7 @@ use Child::Util;
 use Child::Link::Proc;
 use Child::Link::Parent;
 
-use base 'Exporter';
+use Exporter 'import';
 
 our $VERSION = "0.007";
 our @PROCS;

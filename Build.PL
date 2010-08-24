@@ -10,6 +10,7 @@ my $build = Module::Build->new(
     create_readme => 1,
     requires => {
         'POSIX'    => 0,
+        'Exporter' => 5.57,
     },
     build_requires => {
         'Test::More'      => 0.88,
