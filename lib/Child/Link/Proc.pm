@@ -85,7 +85,7 @@ Check if the child is finished (non-blocking)
 
 =item $proc->wait()
 
-Wait on the child (blocking)
+Wait until child terminates, destroy remaining zombie process (blocking)
 
 =item $proc->kill($SIG)
 
