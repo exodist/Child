@@ -2,7 +2,7 @@
 use strict;
 use warnings;
 
-use Test::More;
+use Test::More 0.88;
 our $CLASS = 'Child';
 
 require_ok( $CLASS );
