@@ -1,6 +1,7 @@
 package Child::Link::Proc;
 use strict;
 use warnings;
+use Carp;
 
 use Child::Util;
 
