@@ -3,6 +3,7 @@ use strict;
 use warnings;
 use Carp;
 
+use Carp;
 use Child::Util;
 
 use base 'Child::Link';
@@ -36,6 +37,8 @@ sub unix_exit {
 sub _wait {
     my $self = shift;
     my ( $block ) = @_;
+    #non-blocking to check if process was terminated
+    #blocking to wait until it finishes
     unless ( defined $self->exit ) {
         my @flags;
         require POSIX unless $block;
@@ -46,8 +49,13 @@ sub _wait {
             $ret = waitpid( $self->pid, $block ? 0 : &POSIX::WNOHANG );
         } while ( $block && !$ret );
         return 0 unless $ret;
-        croak( "wait returned $ret: No such process " . $self->pid )
-            if $ret < 0;
+        if ($^O eq 'MSWin32') {
+            croak( "wait returned $ret: No such process " . $self->pid )
+                if $ret == -1; #forked threads on Win32 have negative pids
+        } else {
+            croak( "wait returned $ret: No such process " . $self->pid )
+                if $ret < 0;
+        }
         $self->_exit( $? );
     }
     return defined($self->exit);
@@ -85,7 +93,7 @@ Check if the child is finished (non-blocking)
 
 =item $proc->wait()
 
-Wait on the child (blocking)
+Wait until child terminates, destroy remaining zombie process (blocking)
 
 =item $proc->kill($SIG)
 

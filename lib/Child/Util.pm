@@ -3,7 +3,7 @@ use strict;
 use warnings;
 use Carp qw/croak/;
 
-use base 'Exporter';
+use Exporter 'import';
 our @EXPORT = qw/add_accessors add_abstract/;
 
 sub _abstract {
