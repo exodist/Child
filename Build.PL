@@ -21,6 +21,7 @@ my $build = Module::Build->new(
         resources => {
             repository => 'http://github.com/exodist/Child',
             bugtracker => 'http://github.com/exodist/Child/issues',
+            homepage   => 'http://open-exodus.net/projects/child'
         },
     }
 );
