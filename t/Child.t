@@ -84,7 +84,7 @@ my $end = time;
 
 ok( $end - $start > 2, "No autoflush" );
 
-if ($^O eq 'MSWin32') {
+SKIP: if ($^O eq 'MSWin32') {
     skip "detach is not available on win32", 1;
 }
 else {
