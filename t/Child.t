@@ -35,7 +35,10 @@ $proc = $CLASS->new( sub { sleep 100 } )->start;
 my $ret = eval { $proc->say("XXX"); 1 };
 ok( !$ret, "Died, no IPC" );
 like( $@, qr/Child was created without IPC support./, "No IPC" );
-$proc->kill(2);
+{
+    local $SIG{INT} = sub {} if $^O eq 'MSWin32';
+    $proc->kill(2);
+}
 
 $proc = $CLASS->new( sub {
     my $self = shift;
@@ -46,7 +49,10 @@ $proc = $CLASS->new( sub {
 
 $proc->read;
 sleep 1;
-ok( $proc->kill(2), "Send signal" );
+{
+    local $SIG{INT} = sub {} if $^O eq 'MSWin32';
+    ok( $proc->kill(2), "Send signal" );
+}
 ok( !$proc->wait, "wait" );
 ok( $proc->is_complete, "Complete" );
 is( $proc->exit_status, 2, "Exit 2" );
@@ -70,12 +76,17 @@ my $end = time;
 
 ok( $end - $start > 2, "No autoflush" );
 
-$proc = $CLASS->new( sub {
-    my $self = shift;
-    $self->detach;
-    $self->say( $self->detached );
-}, pipe => 1 )->start;
+if ($^O eq 'MSWin32') {
+    skip "detach is not available on win32", 1;
+}
+else {
+    $proc = $CLASS->new( sub {
+        my $self = shift;
+        $self->detach;
+        $self->say( $self->detached );
+    }, pipe => 1 )->start;
 
-is( $proc->read(), $proc->pid . "\n", "Child detached" );
+    is( $proc->read(), $proc->pid . "\n", "Child detached" );
+}
 
 done_testing;
