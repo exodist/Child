@@ -99,6 +99,9 @@ Wait until child terminates, destroy remaining zombie process (blocking)
 
 Send the $SIG signal to the child process.
 
+B<NOTE>: kill() is unpredictable on windows, strawberry perl sends the kill
+signal to the parent as well as the child.
+
 =item $proc->pid()
 
 Returns the process PID.
