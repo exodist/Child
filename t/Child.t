@@ -30,13 +30,16 @@ ok( $proc->wait, "wait" );
 ok( $proc->is_complete, "Complete" );
 is( $proc->exit_status, 0, "Exit clean" );
 
-$proc = $CLASS->new( sub { sleep 100 } )->start;
+$proc = $CLASS->new( sub { sleep 15 } )->start;
 
 my $ret = eval { $proc->say("XXX"); 1 };
 ok( !$ret, "Died, no IPC" );
 like( $@, qr/Child was created without IPC support./, "No IPC" );
-{
-    local $SIG{INT} = sub {} if $^O eq 'MSWin32';
+if ( $^O eq 'MSWin32' ) {
+    diag( "on win32 we must wait on this process (15 seconds)" );
+    $proc->wait;
+}
+else {
     $proc->kill(2);
 }
 
@@ -44,16 +47,21 @@ $proc = $CLASS->new( sub {
     my $self = shift;
     $SIG{INT} = sub { exit( 2 ) };
     $self->say( "go" );
-    sleep 100;
+    sleep 15;
+    exit 2;
 }, pipe => 1 )->start;
 
 $proc->read;
 sleep 1;
-{
-    local $SIG{INT} = sub {} if $^O eq 'MSWin32';
-    ok( $proc->kill(2), "Send signal" );
+
+if ( $^O eq 'MSWin32' ) {
+    diag( "on win32 we must wait on this process (15 seconds)" );
+    $proc->wait;
 }
-ok( !$proc->wait, "wait" );
+else {
+    ok( $proc->kill(2), "Send signal" );
+    ok( !$proc->wait, "wait" );
+}
 ok( $proc->is_complete, "Complete" );
 is( $proc->exit_status, 2, "Exit 2" );
 ok( $proc->unix_exit > 2, "Real exit" );
