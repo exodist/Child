@@ -41,7 +41,7 @@ Returns the parent process PID.
 
 =item $proc->detach()
 
-Detach the from the parent. uses POSIX::setsid().
+Detach the from the parent. uses POSIX::setsid(). Not available in windows.
 
 =back
 

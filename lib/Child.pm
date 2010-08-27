@@ -9,7 +9,7 @@ use Child::Link::Parent;
 
 use Exporter 'import';
 
-our $VERSION = "0.008";
+our $VERSION = "0.009";
 our @PROCS;
 our @EXPORT_OK = qw/child/;
 
@@ -90,6 +90,9 @@ just have a pile of things nobody wants to think about.
 Child is an Object Oriented interface to fork. It provides a clean way to start
 a child process, and manage it afterwords. It provides methods for running,
 waiting, killing, checking, and even communicating with a child process.
+
+B<NOTE>: kill() is unpredictable on windows, strawberry perl sends the kill
+signal to the parent as well as the child.
 
 =head1 SYNOPSIS
 
