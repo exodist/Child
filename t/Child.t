@@ -84,17 +84,18 @@ my $end = time;
 
 ok( $end - $start > 2, "No autoflush" );
 
-SKIP: if ($^O eq 'MSWin32') {
-    skip "detach is not available on win32", 1;
-}
-else {
-    $proc = $CLASS->new( sub {
-        my $self = shift;
-        $self->detach;
-        $self->say( $self->detached );
-    }, pipe => 1 )->start;
-
-    is( $proc->read(), $proc->pid . "\n", "Child detached" );
+SKIP: {
+    if ($^O eq 'MSWin32') {
+        skip "detach is not available on win32", 1;
+    }
+    else {
+        $proc = $CLASS->new( sub {
+            my $self = shift;
+            $self->detach;
+            $self->say( $self->detached );
+        }, pipe => 1 )->start;
+        is( $proc->read(), $proc->pid . "\n", "Child detached" );
+    }
 }
 
 done_testing;
