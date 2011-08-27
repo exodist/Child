@@ -108,7 +108,7 @@ signal to the parent as well as the child.
     my $proc = $child->start
 
     # Kill the child if it is not done
-    $proc->complete || $proc->kill(9);
+    $proc->is_complete || $proc->kill(9);
 
     $proc->wait; #blocking
 
