@@ -105,7 +105,7 @@ signal to the parent as well as the child.
         ....
         # exit() is called for you at the end.
     });
-    my $proc = $child->start
+    my $proc = $child->start;
 
     # Kill the child if it is not done
     $proc->is_complete || $proc->kill(9);
