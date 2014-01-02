@@ -61,7 +61,7 @@ Together the tools that make up the Fennec framework provide a potent testing
 environment.
 
 The tools provided by Fennec are also useful on their own. Sometimes a tool
-created for Fennec is useful outside the greator framework. Such tools are
+created for Fennec is useful outside the greater framework. Such tools are
 turned into their own projects. This is one such project.
 
 =over 2
