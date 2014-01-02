@@ -111,14 +111,14 @@ Returns the process PID.
 Will be undef unless the process has exited, otherwise it will have the exit
 status.
 
-B<Note>: When you call exit($N) the actual unix exit status will be bit shifed
+B<Note>: When you call exit($N) the actual unix exit status will be bit shifted
 with extra information added. exit_status() will shift the value back for you.
-That means exit_status() will return 2 whun your child calls exit(2) see
+That means exit_status() will return 2 when your child calls exit(2) see
 unix_exit() if you want the actual value wait() assigned to $?.
 
 =item $proc->unix_exit()
 
-When you call exit($N) the actual unix exit status will be bit shifed
+When you call exit($N) the actual unix exit status will be bit shifted
 with extra information added. See exit_status() if you want the actual value
 used in exit() in the child.
 
@@ -137,7 +137,7 @@ Together the tools that make up the Fennec framework provide a potent testing
 environment.
 
 The tools provided by Fennec are also useful on their own. Sometimes a tool
-created for Fennec is useful outside the greator framework. Such tools are
+created for Fennec is useful outside the greater framework. Such tools are
 turned into their own projects. This is one such project.
 
 =over 2
