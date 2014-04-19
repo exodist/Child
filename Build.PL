@@ -16,6 +16,7 @@ my $build = Module::Build->new(
     },
     build_requires => {
         'Test::More'      => 0.88,
+        'Capture::Tiny'   => 0.22,
     },
     meta_merge => {
         resources => {

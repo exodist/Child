@@ -68,7 +68,11 @@ sub start {
     @PROCS = ();
     my $parent = $self->parent_class->new( $ppid, @data );
     my $code = $self->code;
-    $code->( $parent );
+
+    # Ensure the child code can't die and jump out of our control.
+    eval { $code->( $parent ); } || do {
+        print STDERR $@;
+    };
     exit;
 }
 
