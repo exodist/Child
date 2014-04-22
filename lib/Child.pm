@@ -70,8 +70,10 @@ sub start {
     my $code = $self->code;
 
     # Ensure the child code can't die and jump out of our control.
-    eval { $code->( $parent ); } || do {
+    eval { $code->( $parent ); 1; } || do {
+        # Simulate die without dying.
         print STDERR $@;
+        exit 255;
     };
     exit;
 }
