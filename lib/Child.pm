@@ -9,7 +9,7 @@ use Child::Link::Parent;
 
 use Exporter 'import';
 
-our $VERSION = "0.009";
+our $VERSION = "0.010";
 our @PROCS;
 our @EXPORT_OK = qw/child/;
 

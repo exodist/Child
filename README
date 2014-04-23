@@ -12,6 +12,9 @@ DESCRIPTION
     for running, waiting, killing, checking, and even communicating with a
     child process.
 
+    NOTE: kill() is unpredictable on windows, strawberry perl sends the kill
+    signal to the parent as well as the child.
+
 SYNOPSIS
   BASIC
         use Child;
@@ -110,7 +113,7 @@ SEE ALSO
         The proc object that is returned by $child->start()
 
     Child::Link::Parent
-        The parent object that is provided as the argumunt to the function
+        The parent object that is provided as the argument to the function
         used to define the child.
 
     Child::Link::IPC
@@ -129,7 +132,7 @@ FENNEC PROJECT
     a potent testing environment.
 
     The tools provided by Fennec are also useful on their own. Sometimes a
-    tool created for Fennec is useful outside the greator framework. Such
+    tool created for Fennec is useful outside the greater framework. Such
     tools are turned into their own projects. This is one such project.
 
     Fennec - The core framework
