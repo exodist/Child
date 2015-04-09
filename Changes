@@ -1,3 +1,5 @@
+0.011
+  - Clean up child processes once they are have been waited on, do not store them forever
 
-
+?
   - Processes created by fork will have negative pids on Windows (CHORNY)

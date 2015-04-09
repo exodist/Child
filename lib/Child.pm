@@ -9,7 +9,7 @@ use Child::Link::Parent;
 
 use Exporter 'import';
 
-our $VERSION = "0.010";
+our $VERSION = "0.011";
 our @PROCS;
 our @EXPORT_OK = qw/child/;
 
@@ -22,6 +22,13 @@ sub child(&;@) {
 }
 
 sub all_procs { @PROCS }
+
+sub _clean_proc {
+    my $class = shift;
+    my ($proc) = @_;
+    return unless $proc;
+    @PROCS = grep { $proc != $_ } @PROCS;
+}
 
 sub all_proc_pids {
     my $class = shift;

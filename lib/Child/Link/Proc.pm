@@ -56,6 +56,7 @@ sub _wait {
             croak( "wait returned $ret: No such process " . $self->pid )
                 if $ret < 0;
         }
+        Child->_clean_proc($self);
         $self->_exit( $? );
     }
     return defined($self->exit);
