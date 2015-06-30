@@ -27,7 +27,8 @@ sub _clean_proc {
     my $class = shift;
     my ($proc) = @_;
     return unless $proc;
-    @PROCS = grep { $proc != $_ } @PROCS;
+    return unless @PROCS;
+    @PROCS = grep { $_ && $proc != $_ } @PROCS;
 }
 
 sub all_proc_pids {
