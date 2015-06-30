@@ -1,4 +1,6 @@
 {{$NEXT}}
+
+0.012     2015-06-29 22:50:18-07:00 America/Los_Angeles
     - Switch to Dist::Zilla
     - Switch to new Changes Layout
     - Fix destructor bug (#12)
