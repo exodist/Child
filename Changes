@@ -1,6 +1,7 @@
 {{$NEXT}}
     - Switch to Dist::Zilla
     - Switch to new Changes Layout
+    - Fix destructor bug (#12)
 
 0.011
     - Clean up child processes once they are have been waited on, do not store them forever
