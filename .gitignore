@@ -4,7 +4,7 @@ MYMETA.*
 _build/
 blib/
 old
-/Fennec*
+/Child*
 .build
 /_\d+
 subprojects

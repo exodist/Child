@@ -46,5 +46,28 @@
 \bbuild.com$
 ^MANIFEST\.SKIP
 
-# Avoid archives of this distribution
-\bExporter-Declare-[\d\.\_]+
+.travis.yml
+
+dist.ini
+
+test.pl
+
+# Avoid Devel::Cover stuff
+^cover_db/
+
+# Don't include our dist director
+^Child-*
+
+# Profiling stuff
+^nytp*
+^profile
+
+# The extra tests are for dist author testing only
+\bxt
+
+# For github testing
+.travis.yml
+
+dist.ini
+
+MANIFEST.SKIP

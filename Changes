@@ -1,5 +1,9 @@
+{{$NEXT}}
+    - Switch to Dist::Zilla
+    - Switch to new Changes Layout
+
 0.011
-  - Clean up child processes once they are have been waited on, do not store them forever
+    - Clean up child processes once they are have been waited on, do not store them forever
 
 ?
-  - Processes created by fork will have negative pids on Windows (CHORNY)
+    - Processes created by fork will have negative pids on Windows (CHORNY)
