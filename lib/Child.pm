@@ -256,7 +256,7 @@ The base class for IPC plugin link objects. This provides the IPC methods.
 
 =head1 HISTORY
 
-Most of this was part of L<Parrallel::Runner> intended for use in the L<Fennec>
+Most of this was part of L<Parallel::Runner> intended for use in the L<Fennec>
 project. Fennec is being broken into multiple parts, this is one such part.
 
 =head1 FENNEC PROJECT

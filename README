@@ -148,7 +148,7 @@ SEE ALSO
 
 HISTORY
 
-    Most of this was part of Parrallel::Runner intended for use in the
+    Most of this was part of Parallel::Runner intended for use in the
     Fennec project. Fennec is being broken into multiple parts, this is one
     such part.
 

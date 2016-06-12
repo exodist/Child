@@ -127,7 +127,7 @@ used in exit() in the child.
 
 =head1 HISTORY
 
-Most of this was part of L<Parrallel::Runner> intended for use in the L<Fennec>
+Most of this was part of L<Parallel::Runner> intended for use in the L<Fennec>
 project. Fennec is being broken into multiple parts, this is one such part.
 
 =head1 FENNEC PROJECT
