@@ -46,10 +46,6 @@
 \bbuild.com$
 ^MANIFEST\.SKIP
 
-.travis.yml
-
-dist.ini
-
 test.pl
 
 # Avoid Devel::Cover stuff
@@ -65,8 +61,9 @@ test.pl
 # The extra tests are for dist author testing only
 \bxt
 
-# For github testing
+# CI configs
 .travis.yml
+appveyor.yml
 
 dist.ini
 
