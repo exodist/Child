@@ -11,7 +11,8 @@ install:
   - dzil authordeps --missing | cpanm -n
   - dzil listdeps --missing | cpanm
 
-build: off
+build_script:
+  - perl -e 1
 
 test_script:
   - dzil test
