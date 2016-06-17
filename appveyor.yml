@@ -12,7 +12,7 @@ install:
   - dzil listdeps --missing | cpanm
 
 build_script:
-  - perl -e 1
+  - perl -e 2
 
 test_script:
   - dzil test
