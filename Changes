@@ -1,8 +1,8 @@
 {{$NEXT}}
 
 0.013     2016-06-22 08:21:12-07:00 America/Los_Angeles
-
-    - Fix Windows (schwern)
+    - Fix crashing on Windows when Perl is <= 5.20 while inside a
+      Capture::Tiny block. This was causing t/die.t to fail. (schwern)
 
 0.012     2015-06-29 22:50:18-07:00 America/Los_Angeles
     - Switch to Dist::Zilla
